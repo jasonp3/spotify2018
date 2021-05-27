@@ -1,0 +1,214 @@
+---
+title: "Final Project Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(modelr)
+library(purrr)
+library(broom)
+```
+```{r}
+spotify2017 = featuresdf
+spotify2018 = Spotify
+
+spotify2017$genre = NA
+
+spotify2017$genre = c("Pop", "Pop Latino", "Pop Latino", "Dance", "Hip-Hop/Rap", "Hip-Hop/Rap", "Dance", "Hip-Hop/Rap", "R&B/Soul", "Soundtrack", "Hip-Hop/Rap", "Dance", "Pop", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Rock", "Hip-Hop/Rap", "Rock", "Pop", "Pop", "Pop Latino", "Pop", "Pop", "Dance", "Dance", "Dance", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Pop", "Dance", "Dance", "Dance", "Pop Latino", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Pop", "Dance", "Hip-Hop/Rap", "Dance", "Dance", "Hip-Hop/Rap", "Pop Latino", "Pop", "Pop", "R&B/Soul", "R&B/Soul", "Hip-Hop/Rap", "Pop Latino", "Dance", "Pop", "Pop", "Hip-Hop/Rap", "Soundtrack", "Pop", "Pop Latino", "Hip-Hop/Rap", "Rock", "Hip-Hop/Rap", "R&B/Soul", "Dance", "Pop", "Dance", "Pop", "Dance", "Pop", "Hip-Hop/Rap", "Pop", "Pop Latino", "Pop", "Pop", "Pop Latino", "Pop", "Pop", "Dance", "Pop", "Dance", "Dance", "Pop", "Pop Latino", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Dance", "Country", "Pop", "Pop")
+
+spotify2018$genre = NA
+
+spotify2018$genre = c("Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Dance", "Pop", "Pop", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Hip-Hop/Rap", "Pop", "Urbano Latino", "Pop", "Hip-Hop/Rap", "Dance", "Urbano Latino", "Pop", "Pop", "Pop", "Pop", "R&B/Soul", "Pop", "Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Dance", "Hip-Hop/Rap", "Pop", "Pop Latino", "Pop", "Pop", "Pop", "Pop", "Dance", "Hip-Hop/Rap", "Urbano Latino", "Hip-Hop/Rap", "Alternative", "Urbano Latino", "Dance", "R&B/Soul", "Pop", "Hip-Hop/Rap", "R&B/Soul", "Hip-Hop/Rap", "Dance", "Pop", "Hip-Hop/Rap", "Alternative", "Hip-Hop/Rap", "Dance", "Dance", "Hip-Hop/Rap", "Urbano Latino", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Pop", "Urbano Latino", "Dance", "Pop", "Dance", "Pop", "Alternative", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop Latino", "Urbano Latino", "Hip-Hop/Rap", "Alternative", "Hip-Hop/Rap", "Hip-Hop/Rap", "Urbano Latino", "Pop", "Urbano Latino", "R&B/Soul", "Urbano Latino", "Pop Latino", "Urbano Latino", "Dance", "Hip-Hop/Rap", "Pop", "Soundtrack", "Hip-Hop/Rap", "Soundtrack", "Dance", "Hip-Hop/Rap", "Pop", "Singer/Songwriter")
+spotify_combined <- rbind(spotify2018, spotify2017)
+
+spotify_combined %>% count(genre) %>% arrange(desc(n))
+
+spotify_combined$HIPHOP <- ifelse((spotify_combined$genre == "Hip-Hop/Rap"), 1, 0) 
+
+HIPHOP =  as.numeric(spotify_combined$HIPHOP)
+
+spotify_combined$year = NA
+spotify_combined$year[1:100] = 2018
+spotify_combined$year[101:200] = 2017
+
+NEST = spotify_combined %>% group_by(year) %>% nest()
+NEST %>% filter(year == 2017) %>% unnest()
+NEST %>% filter(year == 2018) %>% unnest()
+```
+
+
+```{r}
+for(k in unique(spotify_combined$year)) {
+  TEST = NEST %>% filter(year==k) %>%
+    unnest()
+  TRAIN = NEST %>% filter(year!=k) %>%
+    unnest()
+  
+  linmod = glm(HIPHOP~danceability+speechiness+valence+duration_ms + time_signature, family=binomial, data = TRAIN)
+  linmodpred = predict(linmod, newdata = TEST)
+  
+  spotify_combined$linpred[which(spotify_combined$year==k)]=linmodpred
+}
+
+spotify_combined$HipHopRap = NA
+spotify_combined$HipHopRap[which(spotify_combined$HIPHOP == 1)] = "Hip-Hop/Rap"
+spotify_combined$HipHopRap[which(spotify_combined$HIPHOP == 0)] = "Other Genre"
+
+ggplot(spotify_combined) +
+  geom_point(aes(x=HipHopRap, y = linpred), position = position_jitter(h = 0.05), alpha = 0.5, stroke = 0) +
+  xlab("Genre") +
+  ylab("Prediction")
+```
+
+
+
+
+
+
+
+
+
+```{r}
+RMSE.func = function(actual, predict) (
+  return(sqrt(mean(predict - actual)^2))
+)
+
+RMSE.func(actual = spotify_combined$HIPHOP, predict = spotify_combined$linpred)
+```
+```{r}
+train = spotify2017
+test = spotify2018
+train$HIPHOP = ifelse((train$genre == "Hip-Hop/Rap"), 1, 0)
+test$HIPHOP = ifelse((test$genre == "Hip-Hop/Rap"), 1, 0)
+
+mod = glm(HIPHOP~danceability+speechiness+valence+duration_ms + time_signature, family=binomial, data=train)
+summary(mod)
+
+fitTest = predict.glm(mod, newdata = test, type="response")
+tibble = tibble(x = train$HIPHOP, y = fitTest)
+tibble$pred = NA
+tibble$pred = ifelse((tibble$y < 0.5), 0, 1)
+# Incorrect, predictions made on test
+
+tibble.0 = tibble(x = test$HIPHOP, y = fitTest)
+tibble.0$pred = ifelse((tibble$y < 0.5),0,1)
+# Correct, predictions on test
+
+testmod = glm(HIPHOP~danceability+speechiness+valence+duration_ms+time_signature, family=binomial, data=test)
+fitTest.1 = predict.glm(testmod, newdata=train, type="response")
+tibble.1 = tibble(x=train$HIPHOP, y=fitTest.1)
+tibble.1$pred = ifelse((tibble$y < 0.5), 0, 1)
+
+fitTest
+
+ggplot(tibble) +
+  geom_point(aes(x=x, y=pred), position = position_jitter(w=0.1, h=0.1))
+# Incorrect
+
+tibble.0$genre = ifelse((tibble.0$x == 0), "Other Genre", "Hip-Hop/Rap")
+
+ggplot(tibble.0, aes(x=x, y=pred)) +
+  geom_point(position=position_jitter(w=0.1, h=0.1)) +
+  geom_smooth(method = "glm", method.args = list(family=binomial), se = FALSE) +
+  xlab("Genre: 0 is Other Genre, 1 is Hip-Hop/Rap") +
+  ylab("Prediction")
+# Correct
+
+```
+
+Modeling
+```{r}
+d.max = 10
+e.max = 10
+
+OUT.RMSE = matrix(NA,10,10)
+train.model.func = function(data, i, j) {
+  mod=glm(HIPHOP~poly(danceability, i) + poly(speechiness,j), family = binomial, data = data)
+}
+
+
+for(d in 1:d.max) {
+  for(e in 1:e.max) {
+    logmod=train.model.func(train, d, e)
+    logmodpredict=predict(logmod, newdata=test)
+    
+  }
+}
+```
+Modeling Results
+
+```{r}
+train = spotify2017
+test = spotify2018
+train$HIPHOP = ifelse((train$genre == "Hip-Hop/Rap"), 1, 0)
+test$HIPHOP = ifelse((test$genre == "Hip-Hop/Rap"), 1, 0)
+
+mod = glm(HIPHOP~danceability+speechiness+valence+duration_ms + time_signature, family=binomial, data=train)
+summary(mod)
+
+fitTest = predict.glm(mod, newdata = test, type="response")
+tibble.0 = tibble(x = test$HIPHOP, y = fitTest)
+tibble.0$pred = ifelse((tibble$y < 0.5),0,1)
+tibble.0$genre = ifelse((tibble.0$x == 0), "Other Genre", "Hip-Hop/Rap")
+
+ggplot(tibble.0, aes(x=x, y=pred)) +
+  geom_point(position=position_jitter(w=0.1, h=0.1)) +
+  geom_smooth(method = "glm", method.args = list(family=binomial), se = FALSE) +
+  xlab("Genre: 0 is Other Genre, 1 is Hip-Hop/Rap") +
+  ylab("Prediction")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+models = list()
+error = tibble(degree=1:d.max, RMSE_tr = rep(0, d.max))
+for(d in 1:d.max) {
+  for(e in 1:e.max) {
+  models[[d]] = glm(HIPHOP ~ poly(danceability, d) + poly(speechiness, e), family = binomial, data = train)
+  rmse_tr = sqrt(mean(models[[d]]$residuals^2))
+  error[d, "RMSE_tr"] = rmse_tr
+  }
+}
+
+error
+
+models.0 = list()
+error.0 = tibble(degree=1:d.max, RMSE_tr=rep(0, d.max))
+
+for(d in 1:d.max) {
+  for(e in 1:e.max) {
+    models.0[[d]] = lm(HIPHOP ~ poly(speechiness, d) + poly(valence,e), family = binomial, data = train)
+    rmse_tr = sqrt(mean(models[[d]]$residuals^2))
+    error.0[d, "RMSE_tr"] = rmse_tr
+  }
+}
+error.0
+```
+```{r}
+ggplot(error) +
+  geom_point(aes(x=degree, y=RMSE_tr)) +
+  geom_line(aes(x=degree, y=RMSE_tr))
+```
+
