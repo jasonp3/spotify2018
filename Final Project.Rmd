@@ -1,0 +1,86 @@
+---
+title: "Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+spotify2018 = Spotify
+spotify2017 = featuresdf
+```
+
+```{r}
+spotify2018$genre = NA
+
+spotify2018$genre = c("Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Dance", "Pop", "Pop", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Hip-Hop/Rap", "Pop", "Urbano Latino", "Pop", "Hip-Hop/Rap", "Dance", "Urbano Latino", "Pop", "Pop", "Pop", "Pop", "R&B/Soul", "Pop", "Hip-Hop/Rap", "Pop", "Hip-Hop/Rap", "Dance", "Hip-Hop/Rap", "Pop", "Pop Latino", "Pop", "Pop", "Pop", "Pop", "Dance", "Hip-Hop/Rap", "Urbano Latino", "Hip-Hop/Rap", "Alternative", "Urbano Latino", "Dance", "R&B/Soul", "Pop", "Hip-Hop/Rap", "R&B/Soul", "Hip-Hop/Rap", "Dance", "Pop", "Hip-Hop/Rap", "Alternative", "Hip-Hop/Rap", "Dance", "Dance", "Hip-Hop/Rap", "Urbano Latino", "Pop", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop", "Dance", "Pop", "Urbano Latino", "Dance", "Pop", "Dance", "Pop", "Alternative", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Hip-Hop/Rap", "Pop Latino", "Urbano Latino", "Hip-Hop/Rap", "Alternative", "Hip-Hop/Rap", "Hip-Hop/Rap", "Urbano Latino", "Pop", "Urbano Latino", "R&B/Soul", "Urbano Latino", "Pop Latino", "Urbano Latino", "Dance", "Hip-Hop/Rap", "Pop", "Soundtrack", "Hip-Hop/Rap", "Soundtrack", "Dance", "Hip-Hop/Rap", "Pop", "Singer/Songwriter")
+```
+
+```{r}
+# Do certain genres have patterns among danceability, energy, tempo, …?
+
+spotify2018 %>% count(genre) %>% arrange(desc(n))
+
+ggplot(data = spotify2018) +
+  geom_bar(aes(x=genre))
+
+spotify2018 %>%
+  group_by(genre) %>%
+  summarize(mean.dance = mean(danceability), sd.dance = sd(danceability)) %>%
+  arrange(desc(mean.dance))
+
+spotify2018 %>%
+  group_by(genre) %>%
+  summarize(mean.energy = mean(energy), sd.energy = sd(energy)) %>%
+  arrange(desc(mean.energy))
+
+spotify2018 %>%
+  group_by(genre) %>%
+  summarize(mean.tempo = mean(tempo), sd.tempo = sd(tempo)) %>%
+  arrange(desc(mean.tempo))
+
+# Among the Spotify Top 100, the genre that appears most is Hip-Hop/Rap, followed closely by Pop. We may consider merging the genres Urbano Latino and Pop Latino if there are similarities between the two. Genre data comes from iTunes, as Spotify does not provide genre data for individual songs.
+
+# Follow-Up: Any outliers among danceability, energy, and tempo (songs with > 1 sd from mean for the specific genre). Do outliers perform better or worse in the top 100? Cross-validation with top 100 from 2017? Are diffrences in means significant? Run similiar tests but group by artist?
+```
+```{r}
+# Are certain keys found more frequently in major or minor? Does genre affect this?
+
+spotify2018 %>%
+  count(key) %>%
+  arrange(desc(n))
+
+spotify2018 %>%
+  count(mode) %>%
+  arrange(desc(n))
+
+spotify2018 %>%
+  group_by(key) %>%
+  count(mode) %>%
+  spread(key = mode, value = n)
+
+spotify2018$mode = factor(spotify2018$mode)
+spotify2018 %>%
+  ggplot() +
+  geom_bar(aes(x = mode)) +
+  labs(title = "Distribution of mode by each individual key", subtitle = "For each key: 0-11") +
+  xlab("Mode") +
+  scale_x_discrete(labels = c("0" = "Minor", "1" = "Major")) +
+  facet_wrap(~ key, nrow = 2) +
+  theme_minimal()
+
+spotify2018 %>%
+  group_by(genre) %>%
+  count(mode) %>%
+  spread(key = mode, value = n)
+
+?xlim
+
+
+# The most popular key is 1, while the distribution of keys is fairly even. There are 59 songs in major and 41 songs in minor. Key 5 has 7 songs in minor and 3 songs in major, which appears to be significantly different from expected. Key 9 also has 8 songs in minor and 2 songs in major, which is significantly different from expected. Key 11 also has more songs in minor than major (6 to 4 respectively). Urbano Latino, Pop Latino, and Alternative are the only genres with more songs in minor than major, although the sample size is small.
+
+# Follow-Up: What is the distribution of minor and major across a larger sample size? Is key or genre a better predictor of mode?
+```
+
